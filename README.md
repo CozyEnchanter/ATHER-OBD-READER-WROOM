@@ -123,7 +123,7 @@ Follow the wiring diagram below:
 *   **Real-time Accuracy:** All data is pulled live directly from the BMS, ensuring 100% accuracy.
 *   *More features in active development!*
 
----
+----
 
 ## 💡 Use Cases
 
