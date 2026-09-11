@@ -5,12 +5,8 @@
 // ==== ESP32-WROOM CAN pins ====
 // GPIO5 -> TWAI TX -> transceiver TXD
 // GPIO4 -> TWAI RX -> transceiver RXD
-// (Avoid strapping pins 0, 2, 12, 15 and input-only pins 34-39 for TX.
-//  If 4/5 are already used on your board, any free GPIO pair works —
-//  just update these two defines.)
 #define CAN_TX 5
 #define CAN_RX 4
-
 const char* AP_SSID = "ATHER-OBD";
 const char* AP_PASS = "12345678";
 
