@@ -2,29 +2,35 @@
 #include <WiFi.h>
 #include <WebServer.h>
 
-#define CAN_TX 10
-#define CAN_RX 20
+// ==== ESP32-WROOM CAN pins ====
+// GPIO5 -> TWAI TX -> transceiver TXD
+// GPIO4 -> TWAI RX -> transceiver RXD
+// (Avoid strapping pins 0, 2, 12, 15 and input-only pins 34-39 for TX.
+//  If 4/5 are already used on your board, any free GPIO pair works —
+//  just update these two defines.)
+#define CAN_TX 5
+#define CAN_RX 4
+
 const char* AP_SSID = "ATHER-OBD";
 const char* AP_PASS = "12345678";
 
 // ===== simple state — no BMS_/BCM_ prefixes =====
-volatile float soc = 0;            // SoC %
-volatile float soh = 0;            // a
-volatile float deltaSoc = 0;       // a
+volatile float soc = 0;        // SoC %
+volatile float soh = 0;        // a
+volatile float deltaSoc = 0;   // a
 volatile float voltage = 0;    // a
-volatile float imbalance = 0;      // a
-volatile int   balancing = 0;      // a
-volatile int   rpm = 0;            // a
-volatile int   driveMode = 0;      // a
-volatile bool  sideStand = false;  // a
-volatile bool  frontBrake = false, rearBrake = false, highBeam = false, startSwitch = false;
-volatile bool  killSwitch = false, storageSwitch = false, horn = false;
-volatile bool  indicatorLeftSide = false, indicatorRightSide = false, indicatorCenterSide = false, keyOn = false;
-
+volatile float imbalance = 0;  // a
+volatile int balancing = 0;    // a
+volatile int rpm = 0;          // a
+volatile int driveMode = 0;    // a
+volatile bool sideStand = false; // a
+volatile bool frontBrake = false, rearBrake = false, highBeam = false, startSwitch = false;
+volatile bool killSwitch = false, storageSwitch = false, horn = false;
+volatile bool indicatorLeftSide = false, indicatorRightSide = false, indicatorCenterSide = false, keyOn = false;
 float bootSoc = -1;
 volatile int rangeKm = 0; // a
-
 uint32_t framesTotal = 0;
+
 WebServer server(80);
 
 inline const char* driveModeName(int v){
@@ -46,7 +52,6 @@ const char htmlPage[] PROGMEM = R"HTML(
 :root{--bg:#eceeef;--card:#ffffff;--text:#2b2e34;--muted:#6b7280;--border:#e2e6ea;--accent:#5a7a6a;--accent2:#6e8298;}
 *{box-sizing:border-box}
 body{font-family:Inter,Arial,sans-serif;text-align:center;background:var(--bg);color:var(--text);margin:0;}
-
 header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 10px;position:relative;z-index:1;}
 header h1{margin:0;font-size:24px;letter-spacing:0.3px;color:var(--text);}
 .card{max-width:520px;margin:16px auto;background:var(--card);border-radius:14px;overflow:hidden;border:1px solid var(--border);box-shadow:0 2px 10px rgba(0,0,0,0.06);position:relative;z-index:1;}
@@ -61,30 +66,30 @@ td.off{color:#9aa0a8;text-align:right;}
 <script>
 function sw(id,val,onTxt,offTxt){let e=document.getElementById(id);e.innerText=val?onTxt:offTxt;e.className=val?'on':'off';}
 async function update(){
- try{
-  let r=await fetch('/data'); let j=await r.json();
-  document.getElementById('soc').innerText=j.soc.toFixed(2)+' %';
-  document.getElementById('soh').innerText=j.soh.toFixed(2)+' %';
-  document.getElementById('bdelta').innerText=j.bdelta.toFixed(2)+' %';
-  document.getElementById('volt').innerText=j.volt.toFixed(2)+' V';
-  document.getElementById('imb').innerText=j.imb.toFixed(4)+' V';
-  document.getElementById('bal').innerText=j.bal;
-  document.getElementById('rpm').innerText=j.rpm;
-  document.getElementById('mode').innerText=j.mode;
-  document.getElementById('range').innerText=j.range.toFixed(0)+' km';
-  sw('fbrake',j.fbrake,'Pressed','Not Pressed');
-  sw('rbrake',j.rbrake,'Pressed','Not Pressed');
-  sw('hbeam',j.hbeam,'Pressed','Not Pressed');
-  sw('start',j.start,'Pressed','Not Pressed');
-  sw('kill',j.kill,'Pressed','Not Pressed');
-  sw('storage',j.storage,'Pressed','Not Pressed');
-  sw('horn',j.horn,'Pressed','Not Pressed');
-  sw('indl',j.indl,'Pressed','Not Pressed');
-  sw('indr',j.indr,'Pressed','Not Pressed');
-  sw('indc',j.indc,'Pressed','Not Pressed');
-  sw('key',j.key,'Enabled','Disabled');
-  sw('stand',j.stand,'DOWN','UP');
- }catch(e){}
+try{
+let r=await fetch('/data'); let j=await r.json();
+document.getElementById('soc').innerText=j.soc.toFixed(2)+' %';
+document.getElementById('soh').innerText=j.soh.toFixed(2)+' %';
+document.getElementById('bdelta').innerText=j.bdelta.toFixed(2)+' %';
+document.getElementById('volt').innerText=j.volt.toFixed(2)+' V';
+document.getElementById('imb').innerText=j.imb.toFixed(4)+' V';
+document.getElementById('bal').innerText=j.bal;
+document.getElementById('rpm').innerText=j.rpm;
+document.getElementById('mode').innerText=j.mode;
+document.getElementById('range').innerText=j.range.toFixed(0)+' km';
+sw('fbrake',j.fbrake,'Pressed','Not Pressed');
+sw('rbrake',j.rbrake,'Pressed','Not Pressed');
+sw('hbeam',j.hbeam,'Pressed','Not Pressed');
+sw('start',j.start,'Pressed','Not Pressed');
+sw('kill',j.kill,'Pressed','Not Pressed');
+sw('storage',j.storage,'Pressed','Not Pressed');
+sw('horn',j.horn,'Pressed','Not Pressed');
+sw('indl',j.indl,'Pressed','Not Pressed');
+sw('indr',j.indr,'Pressed','Not Pressed');
+sw('indc',j.indc,'Pressed','Not Pressed');
+sw('key',j.key,'Enabled','Disabled');
+sw('stand',j.stand,'DOWN','UP');
+}catch(e){}
 }
 setInterval(update,1000); window.onload=update;
 </script></head><body>
@@ -121,6 +126,7 @@ setInterval(update,1000); window.onload=update;
 )HTML";
 
 void handleRoot(){ server.send(200,"text/html",htmlPage); }
+
 char jsonBuf[768];
 void handleData(){
   float _soc=soc, _soh=soh, _bdelta=deltaSoc, _volt=voltage, _imb=imbalance;
@@ -128,6 +134,7 @@ void handleData(){
   bool _fbrake=frontBrake, _rbrake=rearBrake, _hbeam=highBeam, _start=startSwitch;
   bool _kill=killSwitch, _storage=storageSwitch, _horn=horn;
   bool _indl=indicatorLeftSide, _indr=indicatorRightSide, _indc=indicatorCenterSide, _key=keyOn, _stand=sideStand;
+
   int n=snprintf(jsonBuf,sizeof(jsonBuf),
     "{\"soc\":%.2f,\"soh\":%.2f,\"bdelta\":%.2f,\"volt\":%.2f,\"imb\":%.4f,\"bal\":%d,\"rpm\":%d,\"mode\":\"%s\",\"range\":%d,\"fbrake\":%s,\"rbrake\":%s,\"hbeam\":%s,\"start\":%s,\"kill\":%s,\"storage\":%s,\"horn\":%s,\"indl\":%s,\"indr\":%s,\"indc\":%s,\"key\":%s,\"stand\":%s}",
     _soc,_soh,_bdelta,_volt,_imb,_bal,_rpm,driveModeName(_mode),_range,
@@ -145,6 +152,7 @@ void setupCAN(){
   twai_filter_config_t f = TWAI_FILTER_CONFIG_ACCEPT_ALL();
   if(twai_driver_install(&g,&t,&f)==ESP_OK){ twai_start(); }
 }
+
 inline void handleFrame(const twai_message_t &m){
   const uint8_t *d=m.data;
   switch(m.identifier){
@@ -163,6 +171,7 @@ inline void handleFrame(const twai_message_t &m){
       break;
   }
 }
+
 void setup(){
   WiFi.persistent(false); WiFi.disconnect(true,true); delay(200);
   WiFi.mode(WIFI_AP); delay(200);
@@ -170,19 +179,17 @@ void setup(){
   server.on("/",handleRoot); server.on("/data",handleData); server.begin();
   setupCAN();
 }
+
 void loop(){
   server.handleClient();
-  // drain max 8 frames per loop to keep WiFi responsive on single-core C3
+
+  // drain up to 8 frames per pass
   for(int i=0;i<8;i++){
     twai_message_t msg;
     if(twai_receive(&msg,0)!=ESP_OK) break;
     handleFrame(msg); framesTotal++;
-    if(i%4==0) server.handleClient(); // yield to HTTP mid-burst
+    if(i%4==0) server.handleClient(); // keep HTTP responsive mid-burst
   }
-  // CRITICAL on single-core C3: loop() and the WiFi/lwIP stack share one core.
-  // Without ever yielding, the scheduler can starve WiFi tasks intermittently —
-  // that's the "loads forever / shows --" behavior you saw. This delay(1) costs
-  // ~1ms, during which the 32-deep TWAI rx queue easily absorbs incoming frames,
-  // so it doesn't cause frame loss — but it lets WiFi run reliably every pass.
+
   delay(1);
 }
